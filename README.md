@@ -152,14 +152,6 @@ The End
 
 ---
 
-## 👨‍💻 Author
-
-**Hardik Agrawal**  
-Electronics and Communication Engineering  
-The LNM Institute of Information Technology (LNMIIT), Jaipur  
-📧 Email: hardikagrawal9124@gmail.com  
-
----
 
 ## 📄 License
 
