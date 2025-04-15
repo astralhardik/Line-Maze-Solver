@@ -101,14 +101,6 @@ float kd = 0;
 
 ---
 
-## 📂 File Structure
-
-- `FinalmazeSolver_with_pid.txt` – Full maze solver with PID logic and path optimization
-- `pid_hardik.txt` – Basic PID line follower implementation
-- `README.md` – This documentation
-
----
-
 ## 🧪 Final Maze Solver Logic
 
 - Follows the maze and logs directions at junctions
