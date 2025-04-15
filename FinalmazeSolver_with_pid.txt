@@ -1,0 +1,373 @@
+
+//                X(5)
+// X(2)    X(4)          X(7)    X(8)        Arrangement of IR sensors with pin number
+//            
+
+// Black => logic 1
+// White => logic 0
+
+// Need to work on : end condition for the sensors
+//                   set the delay in the right and left functions for 90 degree turn
+//                   set the delay in the back function for 180 degree turn
+//                   pid control
+
+//#include <Adafruit_MotorShield.h>
+//Adafruit_MotorShield AFMS = Adafruit_MotorShield();
+//Adafruit_DCMotor *m_left = AFMS.getMotor(1);  
+//Adafruit_DCMotor *m_right = AFMS.getMotor(2);  
+
+const int Lfront = 9;
+const int Lback = 10;
+const int Rfront = 11;
+const int Rback = 12;
+int speed=200;
+
+const int s1=2;
+const int s2=4;
+const int s3=5;
+const int s4=7;
+const int s5=8;
+int val[5]={0,0,0,0,0};
+
+String path;
+
+float kp=40,ki=1,kd=0;
+int P,I,D;
+int degree;
+int last_error=0;
+int max_speed=150;
+int base_speed=100;
+int PIDvalue=0;
+int error=0;
+int leftMotorSpeed=0;
+int rightMotorSpeed=0;
+
+int ledPin=13;
+
+#define STOPPED 0
+#define FOLLOWING_LINE 1
+#define NO_LINE 2
+#define right 3
+#define left 4
+int mode=1;
+
+void setup() 
+{
+  pinMode(s1,INPUT);
+  pinMode(s2,INPUT);
+  pinMode(s3,INPUT);
+  pinMode(s4,INPUT);
+  pinMode(s5,INPUT);
+
+  pinMode(Lfront,OUTPUT);
+  pinMode(Lback,OUTPUT);
+  pinMode(Rfront,OUTPUT);
+  pinMode(Rback,OUTPUT);
+
+  //AFMS.begin(); 
+  //m_left->setSpeed(200);
+  //m_right->setSpeed(200);
+  //m_left->run(RELEASE);
+  //m_right->run(RELEASE);
+  Serial.begin(9600);
+}
+
+void ledBlink()
+{
+   for (int i = 0; i<4; i++)
+   { 
+      digitalWrite (ledPin, HIGH);
+      delay (300);
+      digitalWrite (ledPin, LOW);
+      delay (300);
+   } 
+}
+
+
+void calculatePID()
+{
+  P = error;
+  I = I + error;
+  D = error-last_error;
+  PIDvalue = (kp*P) + (ki*I) + (kd*D);
+  last_error = error;
+}
+
+void motorPIDcontrol()
+{
+  leftMotorSpeed = base_speed - PIDvalue;
+  rightMotorSpeed = base_speed + PIDvalue;
+}
+
+int flag=0;
+void loop() 
+{
+  val[0] = digitalRead(s1);
+  val[1] = digitalRead(s2);
+  val[2] = digitalRead(s3);
+  val[3] = digitalRead(s4);
+  val[4] = digitalRead(s5);
+
+  if((val[0]== 0 )&&(val[1]== 0 )&&(val[2]== 0 )&&(val[3]== 0 )&&(val[4]== 1 )) error = 4;             // Error values
+
+  else if((val[0]== 0 )&&(val[1]== 0 )&&(val[2]== 0 )&&(val[3]== 1 )&&(val[4]== 1 )) error = 3; 
+
+  else if((val[0]== 0 )&&(val[1]== 0 )&&(val[2]== 0 )&&(val[3]== 1 )&&(val[4]== 0 )) error = 2;
+
+  else if((val[0]== 0 )&&(val[1]== 0 )&&(val[2]== 1 )&&(val[3]== 1 )&&(val[4]== 0 )) error = 1;
+
+  else if((val[0]== 0 )&&(val[1]== 0 )&&(val[2]== 1 )&&(val[3]== 0 )&&(val[4]== 0 )) error = 0;
+
+  else if((val[0]== 0 )&&(val[1]== 1 )&&(val[2]== 1 )&&(val[3]== 0 )&&(val[4]== 0 )) error =- 1;
+
+  else if((val[0]== 0 )&&(val[1]== 1 )&&(val[2]== 0 )&&(val[3]== 0 )&&(val[4]== 0 )) error = -2;
+
+  else if((val[0]== 1 )&&(val[1]== 1 )&&(val[2]== 0 )&&(val[3]== 0 )&&(val[4]== 0 )) error = -3;
+
+  else if((val[0]== 1 )&&(val[1]== 0 )&&(val[2]== 0 )&&(val[3]== 0 )&&(val[4]== 0 )) error = -4;
+
+
+  if(val[0] && val[1] && !val[2] && val[3] && val[4]) // straight 
+  {
+    if(flag!=1)
+    {
+      flag=1;
+      path+="S";
+    }
+    //front();
+    mode=FOLLOWING_LINE;
+  }
+  if(val[0] && val[1] && !val[3] && !val[4]) //right||right T-right turn
+  {
+    if(flag!=2)
+    {
+      flag=2;
+      path+="R";
+    }
+    //right();
+    mode=right;
+  }
+  if(!val[0] && !val[1] && val[3] && val[4]) //left||left T-left turn
+  {
+    if(flag!=3)
+    {
+      flag=3;
+      path+="L";
+    }
+    //left();
+    mode=left;    
+  }
+  if(!val[0] && !val[1] && !val[2] && !val[3] && !val[4]) //Cross-left turn
+  {
+    calculatePID();
+    motorPIDcontrol();
+    analogWrite(Lfront,leftMotorSpeed);
+    analogWrite(Lback,0);
+    analogWrite(Rfront,rightMotorSpeed);
+    analogWrite(Rback,0);
+    delay(200);                              // set the delay value just for a small displacement to check the end condition
+
+    if(!val[0] && !val[1] && !val[2] && !val[3] && !val[4])
+    {
+      stop();
+      ledBlink();
+      last_error=error;
+      delay(7000); //wait for 7 seconds
+      finalRun();
+    }
+    else
+    {
+      if(flag!=4)
+      {
+        flag=4;
+        path+="L";
+      }
+      //left();
+      mode=left;
+    }
+  }
+  if(!val[0] && !val[1] && val[2] && !val[3] && !val[4]) //T-left turn
+  {
+    if(flag!=5)
+    {
+      flag=5;
+      path+="L";
+    }
+    //left();
+    mode=left;
+  }
+  if(val[0] && val[1] && val[2] && val[3] && val[4]) //back 
+  {
+    if(flag!=6)
+    {
+      flag=6;
+      path+="B";
+    }
+    //back();
+    mode=NO_LINE;
+  }
+
+  switch (mode)
+  {
+    case NO_LINE:
+       back();
+       last_error=0;
+       break;
+    case FOLLOWING_LINE:
+       calculatePID();
+       motorPIDcontrol();
+       front();
+       break;
+    case right:
+      Right();
+      break;
+    case left:
+      Left();
+      break;
+  }
+}
+
+void front()
+{
+  analogWrite(Lfront,leftMotorSpeed);
+  analogWrite(Lback,0);
+  analogWrite(Rfront,rightMotorSpeed);
+  analogWrite(Rback,0);
+  delay(500);
+}
+void Right()
+{
+  analogWrite(Lfront,speed);
+  analogWrite(Lback,0);
+  analogWrite(Rfront,0);
+  analogWrite(Rback,speed);
+  delay(500);
+  analogWrite(Lfront,0);
+  analogWrite(Lback,0);
+  analogWrite(Rfront,0);
+  analogWrite(Rback,0);
+  delay(1);
+}
+void Left()
+{
+  analogWrite(Lfront,0);
+  analogWrite(Lback,speed);
+  analogWrite(Rfront,speed);
+  analogWrite(Rback,0);
+  delay(500);
+  analogWrite(Lfront,0);
+  analogWrite(Lback,0);
+  analogWrite(Rfront,0);
+  analogWrite(Rback,0);
+  delay(1);
+}
+void back() // 180 degree turn 
+{
+  analogWrite(Lfront,speed);
+  analogWrite(Lback,0);
+  analogWrite(Rfront,0);
+  analogWrite(Rback,speed);
+  delay(1000);
+  analogWrite(Lfront,0);
+  analogWrite(Lback,0);
+  analogWrite(Rfront,0);
+  analogWrite(Rback,0);
+  delay(1);
+}
+void stop()
+{
+  analogWrite(Lfront,0);
+  analogWrite(Lback,0);
+  analogWrite(Rfront,0);
+  analogWrite(Rback,0);
+  delay(10);
+  do
+  {
+    shortPath();
+  }
+  while(path.indexOf("LBL")!=-1 || path.indexOf("LBS")!=-1 || path.indexOf("RBL")!=-1 || path.indexOf("SBS")!=-1 || path.indexOf("SBL")!=-1 || path.indexOf("LBR")!=-1);
+}
+
+void shortPath()
+{
+  //  LBL   LBS   RBL   SBS   SBL   LBR
+  //   S     R     B     B     R     B
+  path.replace("LBL","S");
+  path.replace("LBS","R");
+  path.replace("RBL","B");
+  path.replace("SBS","B");
+  path.replace("SBL","R");
+  path.replace("LBR","B");
+}
+
+void finalRun() {
+
+// This section checks for junctions and performs path optimization based on specific patterns in the 'path' string.
+// If a pattern is identified, it optimizes the path by modifying the corresponding characters in the 'path' string.
+// If a specific pattern is detected, it replaces the characters in the 'path' string accordingly, effectively optimizing the path for the robot's movement.
+// After the path optimization, it checks the current character in the 'path' string to determine whether the robot should move left, right, or continue straight.
+// It increments the index 'i' to move along the path.
+
+  int i = 1;
+  while (true) 
+  {
+    calculatePID();
+    motorPIDcontrol();
+    front();
+
+    if ((!val[0] && !val[1]) || (!val[3] && !val[4])) 
+    { // checking for junction
+      if (i < path.length() - 3) 
+      {
+        if (path[i] == 'L' && path[i + 2] == 'R') 
+        {
+          path[i] = 'B';
+          path.remove(i + 1, 2);
+        } 
+        else if (path[i] == 'L' && path[i + 2] == 'S') 
+        {
+          path[i] = 'R';
+          path.remove(i + 1, 2);
+        } 
+        else if (path[i] == 'R' && path[i + 2] == 'L') 
+        {
+          path[i] = 'B';
+          path.remove(i + 1, 2);
+        } 
+        else if (path[i] == 'S' && path[i + 2] == 'L') 
+        {
+          path[i] = 'R';
+          path.remove(i + 1, 2);
+        } 
+        else if (path[i] == 'S' && path[i + 2] == 'S') 
+        {
+          path[i] = 'B';
+          path.remove(i + 1, 2);
+        } 
+        else if (path[i] == 'L' && path[i + 2] == 'L') 
+        {
+          path[i] = 'S';
+          path.remove(i + 1, 2);
+        }
+      }
+      if (path[i] == 'L') 
+      {
+        Left();
+      } 
+      else if (path[i] == 'R') 
+      {
+        Right();
+      }
+      i++;
+    }
+    if (val[0] && val[1] && val[2] && val[3] && val[4])    // stops as it reaches the end point
+    {
+      ledBlink();
+      analogWrite(Lfront,0);
+      analogWrite(Lback,0);
+      analogWrite(Rfront,0);
+      analogWrite(Rback,0);
+      delay(60000);  // 60 seconds
+    }
+  }
+}
